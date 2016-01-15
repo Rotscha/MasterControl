@@ -1,12 +1,11 @@
 #include <MCDevice.h>
-#include <linux/hidraw.h>
+#include <MCHub.h>
 
 namespace MC
 {
 
     Device::Device()
     {
-        mIsEnabled = false;
         node = "";
         idVendor = 0;
         idProduct = 0;
@@ -18,12 +17,7 @@ namespace MC
 
     Device::~Device()
     {
-    }
-
-
-    bool Device::isEnabled() const
-    {
-        return mIsEnabled;
+        //disconnect();
     }
 
 

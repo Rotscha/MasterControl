@@ -10,11 +10,12 @@ namespace MC
     {
         private:
 
+            bool     enable();
+            void     disable();
+
         public:
                      DeviceVirtual();
                    ~ DeviceVirtual();
-            bool     enable();
-            void     disable();
             int      recvReport(void * data, int size);
             int      sendReport(void * data, int size);
 

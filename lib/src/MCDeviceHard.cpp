@@ -1,4 +1,5 @@
 #include <MCDeviceHard.h>
+#include <MCHub.h>
 #include <linux/hidraw.h>
 
 // May not be defined in older kernel headers
@@ -13,9 +14,9 @@ namespace MC
     DeviceHard::DeviceHard(string node)
     {
         this->node = node;
+        fd = -1;
 
         getInfo();
-enable();
     }
 
 
@@ -27,7 +28,7 @@ enable();
 
     bool DeviceHard::getInfo()
     {
-        fd = open(node.c_str(), O_RDWR | O_NONBLOCK);
+        int fd = open(node.c_str(), O_RDWR | O_NONBLOCK);
  
         if (fd < 0)
         {
@@ -50,16 +51,19 @@ enable();
         idProduct = info.product;
 
         close(fd);
-
-        fd = -1;
     }
 
 
     bool DeviceHard::enable()
     {
-        fd = fd >= 0 ? fd : open(node.c_str(), O_RDWR | O_NONBLOCK);
- 
-        return mIsEnabled = (fd < 0) ? false : true;
+        if (fd >= 0)
+        {
+            return true;
+        }
+
+        fd = open(node.c_str(), O_RDWR | O_NONBLOCK);
+
+        return fd >= 0;
     }
 
 
@@ -68,10 +72,9 @@ enable();
         if (fd >= 0)
         {
             close(fd);
+
             fd = -1;
         }
-
-        mIsEnabled = false;
     }
 
 
@@ -101,8 +104,6 @@ enable();
 
         if (result < 0)
         {
-            disable();
-
             return -1;
         }
 

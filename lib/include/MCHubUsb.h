@@ -19,11 +19,14 @@ namespace MC
              };
 
             string              path;
-            vector <Endpoint>   endpoints;
+
+            // [0] = Control, [1] = IN, [2] = OUT
+            Endpoint            endpoints[3];
             Device            * device;
 
             void                processRequest(const usb_ctrlrequest & request);
             void                processUsbEvents();
+            void                closeEndpoints();
 
         public:
                                 HubUsb(string path);
@@ -31,6 +34,7 @@ namespace MC
             bool                enable();
             void                disable();
             bool                connectDevice(Device * device);
+            void                disconnectDevice();
             void                processEvents();
 
     }; // class HubUsb

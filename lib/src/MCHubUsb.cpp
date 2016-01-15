@@ -202,48 +202,77 @@ namespace MC
     {
         this->path = path;
         device = nullptr;
+
+        endpoints[0].aio_fildes = -1;
+        endpoints[1].aio_fildes = -1;
+        endpoints[2].aio_fildes = -1;
     }
 
 
     HubUsb::~HubUsb()
     {
+        disable();
     }
 
 
     bool HubUsb::enable()
     {
-        if (endpoints.size() > 0)
+        if (mIsEnabled)
         {
             return true;
         }
 
         string gadgetFS = path + '/' + "musb-hdrc";
-        Endpoint ep;
 
-        if ((ep.aio_fildes = open(gadgetFS.c_str(), O_RDWR, 0666)) < 0)
+        if ((endpoints[0].aio_fildes = open(gadgetFS.c_str(), O_RDWR, 0666)) < 0)
         {
             LOG("USB: Failed to open file '%s'! (%s)\n", gadgetFS.c_str(), strerror(errno));
 
             return false;
         }
 
-        endpoints.push_back(ep);
-
-        return true;
+        return mIsEnabled = true;
     }
 
 
     void HubUsb::disable()
     {
+        closeEndpoints();
+
+        if (mIsEnabled)
+        {
+            close(endpoints[0].aio_fildes);
+
+            mIsEnabled = false;
+        }
     }
 
 
     bool HubUsb::connectDevice(Device * device)
     {
-        if ((device == nullptr) || (!enable()))
+        if (device == nullptr)
         {
             return false;
         }
+
+        if (this->device == device)
+        {
+            return true;
+        }
+
+        if ((!enable()) || (!device->enable()))
+        {
+            return false;
+        }
+
+        if (this->device != nullptr)
+        {
+            this->device->disable();
+        }
+
+        this->device = device;
+
+        //******//
 
         deviceConfig.fullSpeed.interface.hid.desc[0].wDescriptorLength = deviceConfig.highSpeed.interface.hid.desc[0].wDescriptorLength = __constant_cpu_to_le16(device->getReportDescriptor().length());
 
@@ -255,6 +284,8 @@ namespace MC
 
 //            close(endpoints[0].aio_fildes);
 
+            disconnectDevice();
+
             return false;
         }
 
@@ -262,9 +293,34 @@ namespace MC
 
 //        Application::getSingletonPtr()->setConnectionStatus("USB", 1);
 
-        this->device = device;
-
         return true;
+    }
+
+
+    void HubUsb::disconnectDevice()
+    {
+        closeEndpoints();
+
+        if (device != nullptr)
+        {
+            device->disable();
+        }
+
+        device = nullptr;
+    }
+
+
+    void HubUsb::closeEndpoints()
+    {
+        for (int i = 1; i < 3; i++)
+        {
+            if (endpoints[i].aio_fildes >= 0)
+            {
+                aio_cancel(endpoints[i].aio_fildes, &endpoints[i]);
+                close(endpoints[i].aio_fildes);
+                endpoints[i].aio_fildes = -1;
+            }
+        }
     }
 
 
@@ -392,10 +448,11 @@ namespace MC
                         case CONFIG_ID_DEFAULT:
                         {
 
-                            for (int i = 0; i < deviceConfig.highSpeed.interface.interface.bNumEndpoints; i++)
+//                            for (int i = 0; i < deviceConfig.highSpeed.interface.interface.bNumEndpoints; i++)
+                            for (int i = 0; i < 2; i++)
                             {
                                 EndpointDescriptor & epd = deviceConfig.fullSpeed.interface.endpoints[i];
-                                Endpoint ep;
+                                Endpoint & ep = endpoints[i + 1];
                                 memset(&ep, 0, sizeof(ep));
                                 const char * epDir = (epd.bEndpointAddress & 0x80) == 0 ? "out" : "in";
 
@@ -424,17 +481,16 @@ namespace MC
 
                                     close(ep.aio_fildes);
 
+                                    ep.aio_fildes = -1;
                                     errors = true;
                                 }
                                 else
                                 {
                                     DBG("USB: Endpoint 0x%02x initialized.\n", epd.bEndpointAddress, strerror(errno));
 
-                     ep.aio_buf = malloc(200);
-                     ep.aio_nbytes = 200;
+                                    ep.aio_buf = malloc(MAX_PACKET_SIZE);
+                                    ep.aio_nbytes = MAX_PACKET_SIZE;
                                     ep.direction = (epd.bEndpointAddress & 0x80) == 0 ? USB_DIR_OUT : USB_DIR_IN;
-
-                                    endpoints.push_back(ep);
                                 }
 
                             }
@@ -705,21 +761,28 @@ namespace MC
                     buf[0] = reportId;
                     int w;
 
-                    if (reportType == 3 /* FEATURE report */)
+                    if ((reportType == 3) /* FEATURE report */ || (reportType == 1 /* IN report */))
                     {
                         int size = reportId == 0 ? request.wLength : request.wLength + 1;
-                        int r = device->recvFeatureReport(buf, size);
+                        int r;
 
-                        DBG("USB: Reading report from device: %s!\n", r == size ? "Ok" : "Failed");
+                        if (reportType == 3)
+                        {
+                            r = device->recvFeatureReport(buf, size);
 
-                        w = write(endpoints[0].aio_fildes, reportId == 0 ? buf : &buf[1], request.wLength);
+                            DBG("USB: Reading report from device: %s!\n", r == size ? "Ok" : "Failed");
+                        }
+                        else
+                        {
+                            DBG("USB: Reading specific report from device IN ep not supported!\n");
+                        }
                     }
                     else
                     {
                         DBG("USB: Unsupported report type!\n");
-
-                        w = write(endpoints[0].aio_fildes, &buf[1], request.wLength);
                     }
+
+                    w = write(endpoints[0].aio_fildes, reportId == 0 ? buf : &buf[1], request.wLength);
 
                     DBG("USB: Sending report to host: %s!\n", w == request.wLength ? "Ok" : "Failed");
 
@@ -747,7 +810,7 @@ namespace MC
 
     void HubUsb::processUsbEvents()
     {
-        if (endpoints.size() == 0)
+        if (!mIsEnabled)
         {
             return;
         }
@@ -801,9 +864,7 @@ namespace MC
             {
                 DBG("USB: Suspended!\n");
 //                bootMode = true;
-                close(endpoints[1].aio_fildes);
-                close(endpoints[2].aio_fildes);
-                mIsDeviceConnected = false;
+                closeEndpoints();
 
 //                Application::getSingletonPtr()->setConnectionStatus("USB", 1);
 
@@ -814,9 +875,7 @@ namespace MC
             {
                 DBG("USB: Disconnected!\n");
 //                bootMode = true;
-                close(endpoints[1].aio_fildes);
-                close(endpoints[2].aio_fildes);
-                mIsDeviceConnected = false;
+                closeEndpoints();
 
 //                Application::getSingletonPtr()->setConnectionStatus("USB", 1);
 
@@ -840,7 +899,6 @@ namespace MC
     {
         processUsbEvents();
 
-//        if (!mIsDeviceConnected)
         if (device == nullptr)
         {
             return;
@@ -849,39 +907,41 @@ namespace MC
         char buf[255];
         int  size = sizeof(buf);
 
-        if (endpoints.size() > 1)
+        for (int i = 1; i < 3; i++)
         {
-            for (int i = 1; i < endpoints.size(); i++)
+            Endpoint & ep = endpoints[i];
+
+            if (ep.aio_fildes < 0)
             {
-                Endpoint & ep = endpoints[i];
-                int ret = aio_return(&ep);
+                continue;
+            }
 
-                if (ret == EINPROGRESS)
+            int ret = aio_return(&ep);
+
+            if (ret == EINPROGRESS)
+            {
+                continue;
+            }
+
+            if (ep.direction == USB_DIR_IN)
+            {
+                int r;
+
+                if ((r = device->recvReport((void *) ep.aio_buf, MAX_PACKET_SIZE)) > 0)
                 {
-                    continue;
+                    ep.aio_nbytes = r;
+
+                    aio_write(&ep);
+                }
+            }
+            else
+            {
+                if (ret > 0)
+                {
+                    device->sendReport((char *) ep.aio_buf, ret);
                 }
 
-                if (ep.direction == USB_DIR_IN)
-                {
-                    int r;
-
-                    if ((r = device->recvReport((void *) ep.aio_buf, 200)) > 0) // TODO 200
-                    {
-                        ep.aio_nbytes = r;
-
-                        aio_write(&ep);
-                    }
-                }
-                else
-                {
-                    if (ret > 0)
-                    {
-//printf("xxx\n");
-                        device->sendReport((char *) ep.aio_buf, ret);
-                    }
-
-                    aio_read(&ep);
-                }
+                aio_read(&ep);
             }
         }
     }

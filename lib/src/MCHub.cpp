@@ -1,4 +1,5 @@
 #include <MCHub.h>
+#include <MCDevice.h>
 
 namespace MC
 {
@@ -6,7 +7,6 @@ namespace MC
     Hub::Hub()
     {
         mIsEnabled = false;
-        mIsDeviceConnected = false;
         device = nullptr;
     }
 
@@ -16,7 +16,7 @@ namespace MC
     }
 
 
-    bool Hub::isEnabled()
+    bool Hub::isEnabled() const
     {
         return mIsEnabled;
     }

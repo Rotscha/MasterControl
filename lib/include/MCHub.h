@@ -10,17 +10,17 @@ namespace MC
     {
         protected:
             bool           mIsEnabled;
-            bool           mIsDeviceConnected;
             Device       * device;
 
         public:
                            Hub();
             virtual      ~ Hub();
-            virtual bool   enable()                       = 0;
-            virtual void   disable()                      = 0;
-            virtual bool   isEnabled();
-            virtual bool   connectDevice(Device * device) = 0;
-            virtual void   processEvents()                = 0;
+            virtual bool   enable()                              = 0;
+            virtual void   disable()                             = 0;
+            virtual bool   isEnabled() const;
+            virtual bool   connectDevice(Device * device)        = 0;
+            virtual void   disconnectDevice()                    = 0;
+            virtual void   processEvents()                       = 0;
 
 
     }; // class Hub
