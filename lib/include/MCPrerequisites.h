@@ -29,16 +29,16 @@ extern "C++" int quick_exit(void (*func)(void)) noexcept;
 
 #include <vector>
 #include <set>
-//#include <map>
+#include <map>
 #include <string>
 #include <assert.h>
 //#include <fstream>
 
 #define vector std::vector
-#define set std::set
+#define set    std::set
 #define string std::string
-/*#define Map    std::map
-#define Pair   std::pair*/
+#define map    std::map
+//#define Pair   std::pair
 
 #define nullptr 0
 
@@ -55,6 +55,8 @@ namespace MC
     class DeviceManager;
     class Hub;
     class HubUsb;
+    class Plugin;
+    class PluginManager;
 
 
 } // namespace MC
