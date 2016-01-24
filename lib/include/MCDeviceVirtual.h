@@ -16,6 +16,7 @@ namespace MC
         public:
                      DeviceVirtual();
                    ~ DeviceVirtual();
+
             int      recvReport(void * data, int size);
             int      sendReport(void * data, int size);
 

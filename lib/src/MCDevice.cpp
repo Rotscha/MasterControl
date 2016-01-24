@@ -21,6 +21,12 @@ namespace MC
     }
 
 
+    string Device::getName() const
+    {
+        return node;
+    }
+
+
     string Device::getNode() const
     {
         return node;

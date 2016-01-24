@@ -4,8 +4,9 @@
 namespace MC
 {
 
-    Hub::Hub()
+    Hub::Hub(string name)
     {
+        this->name = name;
         mIsEnabled = false;
         device = nullptr;
     }
@@ -21,4 +22,15 @@ namespace MC
         return mIsEnabled;
     }
 
+
+    string Hub::getName() const
+    {
+        return name;
+    }
+
+
+    const Device * Hub::getConnectedDevice() const
+    {
+        return device;
+    }
 }

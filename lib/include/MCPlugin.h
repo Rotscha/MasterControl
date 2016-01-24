@@ -18,6 +18,7 @@ namespace MC
         public:
                    Plugin();
                  ~ Plugin();
+
             bool   load(const string & fileName);
             void   unload();
 

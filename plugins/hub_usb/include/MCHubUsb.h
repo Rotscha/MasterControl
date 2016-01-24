@@ -2,7 +2,6 @@
 #define __MCHubUsb_h__
 
 #include <MCHub.h>
-#include <MCSingleton.h>
 
 // Forward declaration
 struct usb_ctrlrequest;
@@ -10,7 +9,7 @@ struct usb_ctrlrequest;
 namespace MC
 {
 
-    class HubUsb : public Hub, public Singleton <HubUsb>
+    class HubUsb : public Hub
     {
         private:
              struct Endpoint : aiocb
@@ -22,7 +21,6 @@ namespace MC
 
             // [0] = Control, [1] = IN, [2] = OUT
             Endpoint            endpoints[3];
-            Device            * device;
 
             void                processRequest(const usb_ctrlrequest & request);
             void                processUsbEvents();
@@ -31,6 +29,7 @@ namespace MC
         public:
                                 HubUsb(string path);
                               ~ HubUsb();
+
             bool                enable();
             void                disable();
             bool                connectDevice(Device * device);

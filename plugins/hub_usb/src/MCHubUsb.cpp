@@ -198,7 +198,7 @@ namespace MC
     };
 
 
-    HubUsb::HubUsb(string path)
+    HubUsb::HubUsb(string path) : Hub("USB")
     {
         this->path = path;
         device = nullptr;

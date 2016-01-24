@@ -1,45 +1,44 @@
 #ifndef __MCApplication_h__
 #define __MCApplication_h__
 
-#include <MCPrerequisites.h>
-#include <MCSingleton.h>
-#include <QtGui/QApplication>
+extern "C++" int at_quick_exit(void (*func)(void)) noexcept;
+extern "C++" int quick_exit(void (*func)(void)) noexcept;
 
-#define App Application::getSingletonPtr()
+#include <QtGui/QApplication>
+#include <MCWindowMain.h>
+#include <MCMain.h>
+
+//#define App Application::getSingletonPtr()
 //#define MESSAGE(source, message) Application::getSingletonPtr()->showMessage(source, message)
 
 namespace MC
 {
 
-    class Application : public QApplication, public Singleton <Application>
+    class Application : public QApplication
     {
         private:
 
-/*            WindowMain         * windowMain;
-            InputDeviceManager * inputDeviceManager;
-            int                  timerApp;
+            WindowMain         * windowMain;
+            Main               * main;
+/*            InputDeviceManager * inputDeviceManager;
             Display            * display;
-            bool                 inputGrabbed;
+            bool                 inputGrabbed;*/
 
             void                 timerEvent(QTimerEvent * timerEvent);
 
-            ServerBluetooth    * serverBluetooth;
+            /*ServerBluetooth    * serverBluetooth;
             ClientBluetooth    * clientBluetooth;
-            ClientUSB          * clientUSB;
+            ClientUSB          * clientUSB;*/
 
-            void                 loadPlugins();*/
+            void                 loadPlugins();
 
         public:
 //            static FILE        * logFile;
 
-                                 Application(int argc, char* argv[]);
+                                 Application(int & argc, char** argv);
                                ~ Application();
-/*            void                 grabInput(bool grab);
-            void                 showMessage(const String & source, const String & message, const bool & log = true);
-            void                 bluetoothConnect(const String & addr);
-            void                 bluetoothDisconnect();
-            void                 setBluetoothStatus(const String & addr, bool connected);
-            void                 setConnectionStatus(const String & name, int status);*/
+            void                 grabInput(bool grab);
+            void                 showMessage(const string & source, const string & message, const bool & log = true);
 
     }; // class Application
 

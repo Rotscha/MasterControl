@@ -16,10 +16,11 @@ namespace MC
         public:
                                      PluginManager();
                                    ~ PluginManager();
+
             bool                     load(const string & fileName);
             void                     unload(const string & fileName);
             void                     unloadAll();
-            vector <string >         getLoadedPlugins();
+            vector <string>          getLoadedPlugins();
             vector <string>          getAvailablePlugins();
 
     }; // class PluginManager

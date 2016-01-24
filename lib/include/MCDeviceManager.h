@@ -1,9 +1,7 @@
 #ifndef __MCDeviceManager_h__
 #define __MCDeviceManager_h__
 
-#include <MCSingleton.h>
-
-#define deviceMgr DeviceManager::getSingletonPtr()
+#include <MCPrerequisites.h>
 
 // Forward declaration
 struct udev_monitor;
@@ -11,37 +9,33 @@ struct udev_monitor;
 namespace MC
 {
 
-    class DeviceManager : public Singleton < DeviceManager >
+    class DeviceManager
     {
         private:
-            typedef void            (*HotplugCallback)(Device & device, bool action);
-            typedef void            (*ReportCallback)(const char * report, int size);
+            typedef void            (*Callback)(const Device & device, const Event & event);
 
-            vector <Device *>         devices;
+            map <string, Device *>    devices;
             udev_monitor            * hotplugMonitor;
             int                       fdHotplug;
+            set <Callback>            callbacks;
 
-            set <HotplugCallback>     hotplugCallbacks;
-            set <ReportCallback>      reportCallbacks;
-
+            void                      envokeCallbacks(const Device & device, const Event & event);
             void                      initHotplug();
             void                      finiHotplug();
             void                      processHotplugEvents();
-            void                      processReportEvents();
 
         public:
                                       DeviceManager();
                                     ~ DeviceManager();
-            void                      addDevice(Device * device);
-            void                      removeDevice(Device * device);
-            void                      registerHotplugCallback(HotplugCallback callback);
-            void                      registerReportCallback(ReportCallback callback);
-            void                      unregisterHotplugCallback(HotplugCallback callback);
-            void                      unregisterReportCallback(ReportCallback callback);
+
+            bool                      add(Device * device);
+            bool                      remove(Device * device);
+            void                      registerCallback(Callback callback);
+            void                      unregisterCallback(Callback callback);
+//            bool                      connectDevice(const string & deviceName,  const string & hubName);
             void                      processEvents();
-Device * getDevice();
-//            Device               * getDeviceByID(int deviceID);
-//            vector <Device *>      getDevices();
+
+            const Device            * getDeviceByName(const string & name) const;
 
     }; // class DeviceManager
 

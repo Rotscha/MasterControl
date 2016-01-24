@@ -32,13 +32,14 @@ extern "C++" int quick_exit(void (*func)(void)) noexcept;
 #include <map>
 #include <string>
 #include <assert.h>
+//#include <utility>
 //#include <fstream>
 
 #define vector std::vector
 #define set    std::set
 #define string std::string
 #define map    std::map
-//#define Pair   std::pair
+#define pair   std::pair
 
 #define nullptr 0
 
@@ -49,12 +50,21 @@ extern "C++" int quick_exit(void (*func)(void)) noexcept;
 
 namespace MC
 {
+    enum Event
+    {
+        ADDED,
+        REMOVED,
+        CONNECTED
+    };
+
+    class ConfigManager;
     class Device;
     class DeviceHard;
     class DeviceVirtual;
     class DeviceManager;
     class Hub;
-    class HubUsb;
+    class HubManager;
+    class Main;
     class Plugin;
     class PluginManager;
 

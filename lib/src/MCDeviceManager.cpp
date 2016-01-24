@@ -7,16 +7,16 @@ namespace MC
 
     DeviceManager::DeviceManager()
     {
-        initHotplug();
+        fdHotplug = -255;
     }
 
 
     DeviceManager::~DeviceManager()
     {
-        while (devices.begin() != devices.end())
+/*        while (devices.begin() != devices.end())
         {
             removeDevice(*(devices.begin()));
-        }
+        }*/
 
         finiHotplug();
     }
@@ -34,7 +34,7 @@ namespace MC
 
         if (!uDev)
         {
-//            DBG("[DeviceManager] Could not initialize udev! Bluetooth support will be disabled.\n");
+            LOG("[DeviceManager] Could not initialize udev! HID passthrough will be disabled.\n");
 
             return;
         }
@@ -57,7 +57,7 @@ namespace MC
             devicePath = udev_list_entry_get_name(uDevListEntry);
             device = udev_device_new_from_syspath(uDev, devicePath);
 
-            addDevice(new DeviceHard(udev_device_get_devnode(device)));
+            add(new DeviceHard(udev_device_get_devnode(device)));
 
             udev_device_unref(device);
         }
@@ -68,9 +68,14 @@ namespace MC
 
     void DeviceManager::finiHotplug()
     {
-        close(fdHotplug);
+        if (fdHotplug >= 0)
+        {
+            close(fdHotplug);
 
-        udev_monitor_unref(hotplugMonitor);
+            udev_monitor_unref(hotplugMonitor);
+
+            fdHotplug = -255;
+        }
     }
 
 
@@ -84,20 +89,25 @@ namespace MC
         {
             if (string(udev_device_get_action(device)) == "remove")
             {
-                for (int i = 0; i < devices.size(); i++)
-                {
-                    if (devices[i]->getNode() == udev_device_get_devnode(device))
-                    {
-                          removeDevice(devices[i]);
+                map <string, Device *>::iterator it;
 
-                          break;
+                for (it = devices.begin(); it != devices.end(); it++)
+                {
+                    if (it->second->getNode() == udev_device_get_devnode(device))
+                    {
+                        Device * dev = it->second;
+
+                        remove(dev);
+
+                        delete dev;
+
+                        break;
                     }
                 }
-
             }
             else
             {
-                addDevice(new DeviceHard(udev_device_get_devnode(device)));
+                add(new DeviceHard(udev_device_get_devnode(device)));
             }
 
             udev_device_unref(device);
@@ -105,95 +115,100 @@ namespace MC
     }
 
 
-    void DeviceManager::processReportEvents()
+    bool DeviceManager::add(Device * device)
     {
-/*        if (devices.size() == 0)
+        if (device == nullptr)
         {
-            return;
+            return false;
         }
 
-        char buf[255];
-        int  size = sizeof(buf);
+        if (devices.find(device->getName()) != devices.end())
+        {
+            return false;
+        }
+        
+        devices[device->getName()] = device;
 
+        envokeCallbacks(*device, ADDED);
+
+        return true;
+    }
+
+
+    bool DeviceManager::remove(Device * device)
+    {
+        if (device == nullptr)
+        {
+            return false;
+        }
+
+        if (devices.find(device->getName()) == devices.end())
+        {
+            return false;
+        }
+        
+        devices.erase(device->getName());
+
+        envokeCallbacks(*device, REMOVED);
+
+        return true;
+    }
+
+
+    const Device * DeviceManager::getDeviceByName(const string & name) const
+    {
+        if (devices.find(name) != devices.end())
+        {
+            return devices.find(name)->second;
+        }
+
+        return nullptr;
+    }
+
+/*    bool DeviceManager::connectDevice(const string & deviceName,  const string & hubName)
+    {
         for (int i = 0; i < devices.size(); i++)
         {
-            if (devices[i]->recvReport(buf, &size))
+            if (devices[i]->getName() == deviceName)
             {
-                for (set <ReportCallback>::const_iterator it = reportCallbacks.begin(); it != reportCallbacks.end(); it++)
-                {
-                    (*it)(buf, size);
-                }
-            }
-        }*/
-    }
-
-
-    void DeviceManager::addDevice(Device * device)
-    {
-        for (int i = 0; i < devices.size(); i++)
-        {
-            if (devices[i] == device)
-            {
-                return;
             }
         }
+    }*/
 
-        devices.push_back(device);
 
-        for (set <HotplugCallback>::const_iterator it = hotplugCallbacks.begin(); it != hotplugCallbacks.end(); it++)
+    void DeviceManager::envokeCallbacks(const Device & device, const Event & event)
+    {
+        for (set <Callback>::const_iterator it = callbacks.begin(); it != callbacks.end(); it++)
         {
-            (*it)(*device, true);
+            (*it)(device, event);
         }
     }
 
 
-    void DeviceManager::removeDevice(Device * device)
+    void DeviceManager::registerCallback(Callback callback)
     {
-        for (int i = 0; i < devices.size(); i++)
-        {
-            if (devices[i] == device)
-            {
-                for (set <HotplugCallback>::const_iterator it = hotplugCallbacks.begin(); it != hotplugCallbacks.end(); it++)
-                {
-                    (*it)(*device, false);
-                }
-
-                delete device;
-
-                devices.erase(devices.begin() + i);
-
-                return;
-            }
-        }
+        callbacks.insert(callback);
     }
 
 
-    void DeviceManager::registerHotplugCallback(HotplugCallback callback)
+    void DeviceManager::unregisterCallback(Callback callback)
     {
-        hotplugCallbacks.insert(callback);
-    }
-
-
-    void DeviceManager::registerReportCallback(ReportCallback callback)
-    {
-        reportCallbacks.insert(callback);
-    }
-
-
-    void DeviceManager::unregisterHotplugCallback(HotplugCallback callback)
-    {
-        hotplugCallbacks.erase(callback);
-    }
-
-
-    void DeviceManager::unregisterReportCallback(ReportCallback callback)
-    {
-        reportCallbacks.erase(callback);
+        callbacks.erase(callback);
     }
 
 
     void DeviceManager::processEvents()
     {
+        if (fdHotplug == -255)
+        {
+            initHotplug();
+        }
+        
+        if (fdHotplug < 0)
+        {
+            return;
+        }
+
         timeval timeout;
         timeout.tv_sec = 0;
         timeout.tv_usec = 0;
@@ -208,13 +223,6 @@ namespace MC
         {
             processHotplugEvents();
         }
-
-        //processReportEvents();
     }
-
-Device * DeviceManager::getDevice()
-{
-  return devices[0];
-}
 
 }

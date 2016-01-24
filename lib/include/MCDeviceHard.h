@@ -16,6 +16,7 @@ namespace MC
         public:
                      DeviceHard(string node);
                    ~ DeviceHard();
+
             bool     enable();
             void     disable();
             int      recvReport(void * data, int size);
